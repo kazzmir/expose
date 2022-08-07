@@ -6,6 +6,7 @@ import (
     "os/signal"
     "os/exec"
     "math"
+    "math/rand"
     "time"
     "context"
     "github.com/veandco/go-sdl2/sdl"
@@ -108,36 +109,57 @@ func isOverlapping(windows []Window) bool {
 
 func doMinimize(windows []Window){
     margin := 10
-    if isOverlapping(windows) {
-        for i := 0; i < len(windows); i++ {
-            windows[i].Width -= 1
-            windows[i].Height -= 1
+    for i := 0; i < len(windows); i++ {
 
-            fx := 0.0
-            fy := 0.0
+        overlapping := false
+        fx := 0.0
+        fy := 0.0
 
-            for j := 0; j < len(windows); j++ {
-                if i == j {
-                    continue
-                }
-
-                if windows[i].Overlaps(windows[j], 10) || windows[j].Overlaps(windows[i], margin) {
-                    cx1 := windows[i].X + float64(windows[i].Width) / 2
-                    cy1 := windows[i].Y + float64(windows[i].Height) / 2
-
-                    cx2 := windows[j].X + float64(windows[j].Width) / 2
-                    cy2 := windows[j].Y + float64(windows[j].Height) / 2
-
-                    radians := math.Atan2(cy1 - cy2, cx1 - cx2)
-                    // log.Printf("Window %v pushed %v\n", i, radians * 180 / math.Pi)
-
-                    fx += math.Cos(radians)
-                    fy -= math.Sin(radians)
-                }
+        for j := 0; j < len(windows); j++ {
+            if i == j {
+                continue
             }
 
-            windows[i].X += fx
-            windows[i].Y += fy
+            if windows[i].Overlaps(windows[j], 10) || windows[j].Overlaps(windows[i], margin) {
+                overlapping = true
+                cx1 := windows[i].X + float64(windows[i].Width) / 2
+                cy1 := windows[i].Y + float64(windows[i].Height) / 2
+
+                cx2 := windows[j].X + float64(windows[j].Width) / 2
+                cy2 := windows[j].Y + float64(windows[j].Height) / 2
+
+                radians := math.Atan2(cy1 - cy2, cx1 - cx2)
+                // log.Printf("Window %v pushed %v\n", i, radians * 180 / math.Pi)
+
+                fx += math.Cos(radians)
+                fy += math.Sin(radians)
+            }
+        }
+
+        if overlapping {
+            if windows[i].Width > 20 {
+                windows[i].Width -= 1
+            }
+            if windows[i].Height > 20 {
+                windows[i].Height -= 1
+            }
+        }
+
+        windows[i].X += fx
+        windows[i].Y += fy
+
+        if windows[i].X < 0 {
+            windows[i].X = 0
+        }
+        if windows[i].Y < 0 {
+            windows[i].Y = 0
+        }
+
+        if windows[i].X + float64(windows[i].Width) > 1000 {
+            windows[i].X = float64(1000 - windows[i].Width)
+        }
+        if windows[i].Y + float64(windows[i].Height) > 1000 {
+            windows[i].Y = float64(1000 - windows[i].Height)
         }
     }
 }
@@ -172,6 +194,32 @@ func doMaximize(windows []Window){
             windows[i].Height += 1
         }
     }
+}
+
+func randomInt(max int) int {
+    if max <= 0 {
+        return 0
+    }
+    return rand.Intn(max)
+}
+
+func randomWindows(max int) []Window {
+    var out []Window
+
+    for i := 0; i < max; i++ {
+        x := randomInt(1000)
+        y := randomInt(1000)
+        w := 200 + randomInt(1000 - x - 200)
+        h := 200 + randomInt(1000 - y - 200)
+        out = append(out, createWindow(x, y, w, h, sdl.Color{
+            R: uint8(randomInt(255)),
+            G: uint8(randomInt(255)),
+            B: uint8(randomInt(255)),
+            A: 255,
+        }))
+    }
+
+    return out
 }
 
 func run(){
@@ -221,10 +269,13 @@ func run(){
         renderer.Destroy()
     })
 
+    /*
     windows := []Window{
         createWindow(100, 100, 300, 300, sdl.Color{R: 255, G: 0, B: 0, A: 255}),
         createWindow(300, 200, 200, 300, sdl.Color{R: 0, G: 255, B: 0, A: 255}),
     }
+    */
+    windows := randomWindows(5)
 
     quit, cancel := context.WithCancel(context.Background())
     signals := make(chan os.Signal, 2)
@@ -311,6 +362,9 @@ func run(){
 
 func main() {
     log.SetFlags(log.Ldate | log.Lshortfile | log.Lmicroseconds)
+    rand.Seed(time.Now().UnixNano())
+
+    log.Printf("Press - to apply expose, and = to make the windows their original size")
 
     sdl.Main(run)
     log.Printf("Bye")

@@ -105,14 +105,48 @@ func run(){
     defer timer.Stop()
 
     render := func(windows []Window){
+        renderer.SetDrawColor(0, 0, 0, 0)
+        renderer.Clear()
+
+        for _, window := range windows {
+            renderer.SetDrawColor(window.Color.R, window.Color.G, window.Color.B, window.Color.A)
+            renderer.FillRect(&sdl.Rect{
+                X: int32(window.X),
+                Y: int32(window.Y),
+                W: int32(window.Width),
+                H: int32(window.Height),
+            })
+        }
+
+        renderer.Present()
+    }
+
+    handleEvents := func(){
+        event := sdl.WaitEventTimeout(1)
+        if event != nil {
+            switch event.GetType() {
+                case sdl.QUIT: cancel()
+                case sdl.KEYDOWN:
+                    key := event.(*sdl.KeyboardEvent)
+                    if key.Keysym.Sym == sdl.K_ESCAPE {
+                        cancel()
+                    }
+            }
+        }
     }
 
     for quit.Err() == nil {
         select {
             case <-timer.C:
-                render(windows)
+                sdl.Do(func(){
+                    render(windows)
+                })
             case <-quit.Done():
                 break
+            default:
+                sdl.Do(func(){
+                    handleEvents()
+                })
         }
     }
 }

@@ -2,7 +2,11 @@ package main
 
 import (
     "log"
+    "os"
+    "os/signal"
     "os/exec"
+    "time"
+    "context"
     "github.com/veandco/go-sdl2/sdl"
 )
 
@@ -14,6 +18,14 @@ func HasGlxinfo() bool {
     glxinfo := exec.Command(glxinfo_path)
     err = glxinfo.Run()
     return err == nil
+}
+
+type Window struct {
+    X int
+    Y int
+    Width int
+    Height int
+    Color sdl.Color
 }
 
 func run(){
@@ -62,6 +74,47 @@ func run(){
     defer sdl.Do(func(){
         renderer.Destroy()
     })
+
+    windows := []Window{
+        Window{
+            X: 100,
+            Y: 100,
+            Width: 100,
+            Height: 100,
+            Color: sdl.Color{R: 255, G: 0, B: 0, A: 255},
+        },
+        Window{
+            X: 500,
+            Y: 200,
+            Width: 100,
+            Height: 100,
+            Color: sdl.Color{R: 0, G: 255, B: 0, A: 255},
+        },
+    }
+
+    quit, cancel := context.WithCancel(context.Background())
+    signals := make(chan os.Signal, 2)
+    go func(){
+        <-signals
+        cancel()
+    }()
+
+    signal.Notify(signals, os.Interrupt)
+
+    timer := time.NewTicker(time.Second / 30)
+    defer timer.Stop()
+
+    render := func(windows []Window){
+    }
+
+    for quit.Err() == nil {
+        select {
+            case <-timer.C:
+                render(windows)
+            case <-quit.Done():
+                break
+        }
+    }
 }
 
 func main() {
